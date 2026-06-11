@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>특판 배차 변환기</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
+.top-bar { background: #1a1a2e; color: #fff; padding: 16px 32px; }
+.top-bar .logo { font-size: 18px; font-weight: 700; }
+.top-bar .sub  { font-size: 13px; color: #8899bb; margin-top: 2px; }
+.container { max-width: 1600px; margin: 0 auto; padding: 32px 24px; }
+.step-card { background: #fff; border-radius: 12px; padding: 28px 32px; margin-bottom: 20px; border: 2px solid transparent; }
+.step-card.active { border-color: #4f8ef7; }
+.step-card.done   { border-color: #22c55e; }
+.step-header { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+.step-num { width: 36px; height: 36px; border-radius: 50%; background: #e8edf8; color: #4f8ef7; font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.step-card.active .step-num { background: #4f8ef7; color: #fff; }
+.step-card.done   .step-num { background: #22c55e; color: #fff; }
+.step-title { font-size: 17px; font-weight: 700; }
+.step-desc  { font-size: 13px; color: #6b7280; margin-top: 2px; }
+.upload-zone { border: 2px dashed #cbd5e1; border-radius: 10px; padding: 36px; text-align: center; cursor: pointer; background: #f8fafc; transition: all 0.2s; user-select: none; }
+.upload-zone:hover  { border-color: #4f8ef7; background: #eff6ff; }
+.upload-zone.dragover { border-color: #4f8ef7; background: #dbeafe; }
+.datetime-group { display: flex; flex-wrap: wrap; gap: 32px; }
+.datetime-block { display: flex; flex-direction: column; gap: 8px; }
+.datetime-block label { font-size: 13px; font-weight: 700; color: #374151; }
+.datetime-row { display: flex; gap: 8px; }
+.dt-date { padding: 9px 10px; border: 1.5px solid #d1d5db; border-radius: 8px; font-size: 14px; font-family: inherit; outline: none; }
+.dt-date:focus { border-color: #4f8ef7; }
+.dt-sel  { padding: 9px 10px; border: 1.5px solid #d1d5db; border-radius: 8px; font-size: 14px; font-family: inherit; background: #fff; cursor: pointer; outline: none; min-width: 120px; }
+.dt-sel:focus { border-color: #4f8ef7; }
+.date-preview { font-size: 13px; color: #6b7280; margin-top: 10px; padding: 8px 14px; background: #f8fafc; border-radius: 6px; display: inline-block; }
+.btn-confirm { background: #22c55e; color: #fff; border: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; margin-top: 16px; }
+.btn-confirm:hover    { background: #16a34a; }
+.btn-confirm:disabled { background: #86efac; cursor: not-allowed; }
+.btn-dl { background: #22c55e; color: #fff; border: none; padding: 13px 36px; border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.btn-dl:hover { background: #16a34a; }
+
+/* 테이블 */
+.table-wrap { border-radius: 10px; border: 1px solid #e5e7eb; width: 100%; overflow: hidden; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+thead tr { background: #1a1a2e; color: #fff; }
+thead th { padding: 10px 7px; text-align: left; font-weight: 600; font-size: 11px; word-break: keep-all; }
+thead th.th-purple { background: #4c1d95; }
+thead th.th-dark   { background: #374151; }
+thead th.th-navy   { background: #1e3a5f; }
+tbody tr.r-normal  { background: #ffffff; }
+tbody tr.r-error   { background: #fff8f8; }
+tbody tr.r-editing { background: #fffbeb; }
+tbody td { padding: 7px 6px; vertical-align: middle; word-break: keep-all; overflow-wrap: break-word; }
+td.c-need  { background: #ffe4e4; }
+td.c-done  { background: #f0fdf4 !important; }
+td.c-warn  { background: #fde68a !important; border-left: 3px solid #f59e0b; }
+td.c-empty { background: #fce7f3 !important; border: 1.5px dashed #db2777; color: #9d174d; font-size: 11px; font-weight: 600; text-align: center; }
+
+/* 그룹 바 셀 */
+.bar-cell { padding: 0 !important; width: 32px; min-width: 32px; vertical-align: middle; }
+.bar-wrap { display: flex; flex-direction: column; align-items: center; height: 100%; min-height: 52px; padding: 2px 4px; position: relative; }
+.bar-seg { width: 5px; border-radius: 3px; }
+/* 순서교환 버튼: 행 하단 중앙 */
+.btn-swap {
+  border: 1.5px solid #cbd5e1;
+  background: #fff;
+  color: #374151;
+  font-size: 15px;
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 3px 5px;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+  margin-top: 2px;
+  display: block;
+  width: 26px;
+  text-align: center;
+}
+.btn-swap:hover { background: #f0f9ff; border-color: #4f8ef7; color: #1d4ed8; box-shadow: 0 2px 6px rgba(79,142,247,0.25); }
+
+.row-dt { display: flex; flex-direction: column; gap: 3px; }
+.row-dt .lbl { font-size: 10px; color: #9ca3af; }
+.row-dt input[type=date] { width: 100%; padding: 3px 5px; border: 1.5px solid #d1d5db; border-radius: 5px; font-size: 11px; font-family: inherit; outline: none; }
+.row-dt select { width: 100%; padding: 3px 4px; border: 1.5px solid #d1d5db; border-radius: 5px; font-size: 11px; font-family: inherit; background: #fff; outline: none; }
+.c-sel { width: 100%; padding: 5px 4px; border: 1.5px solid #fca5a5; border-radius: 6px; font-size: 11px; font-family: inherit; background: #fff; cursor: pointer; outline: none; }
+.c-sel.ok { border-color: #86efac; background: #f0fdf4; }
+.c-sel:focus { border-color: #4f8ef7; }
+.edit-inp { width: 100%; padding: 4px 6px; border: 1.5px solid #f59e0b; border-radius: 5px; font-size: 11px; font-family: inherit; background: #fffbeb; outline: none; resize: vertical; min-height: 52px; vertical-align: top; }
+.edit-inp-sm { width: 100%; padding: 3px 6px; border: 1.5px solid #d1d5db; border-radius: 5px; font-size: 11px; font-family: inherit; background: #fff; outline: none; height: 26px; vertical-align: top; }
+.act-btns { display: flex; flex-direction: column; gap: 3px; }
+.btn-a { border: none; padding: 4px 6px; border-radius: 5px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; width: 100%; text-align: center; }
+.btn-a:hover { opacity: 0.75; }
+.ba-way  { background: #dbeafe; color: #1e40af; }
+.ba-ord  { background: #ede9fe; color: #5b21b6; }
+.ba-edt  { background: #fef3c7; color: #92400e; }
+.ba-del  { background: #fee2e2; color: #dc2626; }
+.ba-done { background: #f59e0b; color: #fff; }
+.badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 99px; }
+.bw  { background: #e0e7ff; color: #3730a3; }   /* 경유 (단순) */
+.bwp { background: #dbeafe; color: #1e40af; }   /* 경유지 */
+.bwf { background: #dcfce7; color: #166534; }   /* 최종하차지 */
+.bo  { background: #ede9fe; color: #5b21b6; }   /* 추가 */
+.chips { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.chip { padding: 6px 14px; border-radius: 99px; font-size: 13px; font-weight: 600; }
+.chip-b { background: #dbeafe; color: #1e40af; }
+.chip-r { background: #fee2e2; color: #dc2626; }
+.chip-g { background: #dcfce7; color: #16a34a; }
+.warn-note { background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 0 8px 8px 0; padding: 12px 16px; font-size: 13px; color: #92400e; margin-bottom: 16px; }
+.info-note { background: #eff6ff; border-left: 4px solid #4f8ef7; border-radius: 0 8px 8px 0; padding: 12px 16px; font-size: 13px; color: #1e40af; margin-bottom: 20px; }
+.hidden { display: none; }
+footer { text-align: center; padding: 28px; color: #9ca3af; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="top-bar" style="display:flex;align-items:center;justify-content:space-between;">
+  <div>
+    <div class="logo">🚚 특판 배차 변환기</div>
+    <div class="sub">특판 배차 리스트 → W1 대량배차 업로드 양식</div>
+  </div>
+  <button onclick="toggleGuide()" style="background:#4f8ef7;color:#fff;border:none;padding:9px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">📖 사용 가이드</button>
+</div>
+
+<!-- 가이드 오버레이 -->
+<div id="guideOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;overflow-y:auto;padding:32px 16px;">
+  <div style="max-width:780px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+
+    <!-- 가이드 헤더 -->
+    <div style="background:#1a1a2e;color:#fff;padding:24px 32px;display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-size:20px;font-weight:700;">📖 사용 가이드</div>
+        <div style="font-size:13px;color:#8899bb;margin-top:4px;">특판 배차 변환기 사용 방법</div>
+      </div>
+      <button onclick="toggleGuide()" style="background:rgba(255,255,255,0.15);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">✕ 닫기</button>
+    </div>
+
+    <div style="padding:32px;">
+
+      <!-- 전체 흐름 -->
+      <div style="margin-bottom:36px;">
+        <div style="font-size:15px;font-weight:700;color:#1a1a2e;margin-bottom:16px;">⚡ 전체 흐름</div>
+        <div style="display:flex;align-items:center;gap:0;flex-wrap:wrap;gap:4px;">
+          <div style="background:#4f8ef7;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:700;text-align:center;min-width:110px;">① 파일 업로드<br><span style="font-size:11px;font-weight:400;opacity:0.85;">xlsx 파일 선택</span></div>
+          <div style="font-size:20px;color:#9ca3af;padding:0 4px;">→</div>
+          <div style="background:#4f8ef7;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:700;text-align:center;min-width:110px;">② 일자 입력<br><span style="font-size:11px;font-weight:400;opacity:0.85;">상차·하차 날짜</span></div>
+          <div style="font-size:20px;color:#9ca3af;padding:0 4px;">→</div>
+          <div style="background:#7c3aed;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:700;text-align:center;min-width:110px;">③ 검토·수정<br><span style="font-size:11px;font-weight:400;opacity:0.85;">빨간 칸 선택</span></div>
+          <div style="font-size:20px;color:#9ca3af;padding:0 4px;">→</div>
+          <div style="background:#22c55e;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:700;text-align:center;min-width:110px;">④ 다운로드<br><span style="font-size:11px;font-weight:400;opacity:0.85;">CSV 저장</span></div>
+        </div>
+      </div>
+
+      <!-- STEP 1 -->
+      <div style="margin-bottom:28px;border:1.5px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+        <div style="background:#f0f9ff;padding:14px 20px;border-bottom:1.5px solid #e5e7eb;display:flex;align-items:center;gap:10px;">
+          <div style="background:#4f8ef7;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;">1</div>
+          <div style="font-size:15px;font-weight:700;color:#1e40af;">파일 업로드</div>
+        </div>
+        <div style="padding:18px 20px;">
+          <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+            <div style="flex:1;min-width:200px;">
+              <p style="font-size:13px;color:#374151;line-height:1.7;margin-bottom:10px;">거래처에서 받은 <strong>특판 배차 엑셀 파일(.xlsx)</strong>을 올려주세요.</p>
+              <div style="display:flex;flex-direction:column;gap:8px;">
+                <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#374151;">
+                  <div style="background:#dbeafe;color:#1e40af;padding:3px 10px;border-radius:99px;font-weight:700;white-space:nowrap;">방법 1</div>
+                  파일을 파란 박스 안으로 <strong>끌어다 놓기</strong>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#374151;">
+                  <div style="background:#dbeafe;color:#1e40af;padding:3px 10px;border-radius:99px;font-weight:700;white-space:nowrap;">방법 2</div>
+                  파란 박스를 <strong>클릭</strong>해서 파일 선택
+                </div>
+              </div>
+            </div>
+            <!-- 업로드존 시각화 -->
+            <div style="border:2px dashed #93c5fd;border-radius:10px;padding:16px 24px;text-align:center;background:#eff6ff;min-width:180px;">
+              <div style="font-size:28px;margin-bottom:6px;">📂</div>
+              <div style="font-size:12px;font-weight:600;color:#1e40af;">파일을 여기에 올려주세요</div>
+              <div style="font-size:11px;color:#6b7280;margin-top:4px;">특판배차_XXXXXX.xlsx</div>
+            </div>
+          </div>
+          <div style="margin-top:12px;padding:10px 14px;background:#f0fdf4;border-radius:8px;font-size:12px;color:#166534;">
+            ✅ 업로드 성공 시: <strong>"파일명 읽기 완료 — N건"</strong> 초록색 메시지가 표시됩니다.
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2 -->
+      <div style="margin-bottom:28px;border:1.5px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+        <div style="background:#f0fdf4;padding:14px 20px;border-bottom:1.5px solid #e5e7eb;display:flex;align-items:center;gap:10px;">
+          <div style="background:#22c55e;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;">2</div>
+          <div style="font-size:15px;font-weight:700;color:#166534;">일자 입력</div>
+        </div>
+        <div style="padding:18px 20px;">
+          <p style="font-size:13px;color:#374151;line-height:1.7;margin-bottom:12px;">상차일자와 하차 기본일자·시간을 선택하고 <strong>입력 완료</strong> 버튼을 눌러주세요.</p>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+            <div style="border:1.5px solid #d1d5db;border-radius:8px;padding:12px 16px;flex:1;min-width:160px;background:#f9fafb;">
+              <div style="font-size:11px;font-weight:700;color:#6b7280;margin-bottom:6px;">상차 일자 / 시간</div>
+              <div style="display:flex;gap:6px;">
+                <div style="background:#fff;border:1px solid #d1d5db;border-radius:5px;padding:5px 8px;font-size:11px;color:#374151;">2026-06-12</div>
+                <div style="background:#fff;border:1px solid #d1d5db;border-radius:5px;padding:5px 8px;font-size:11px;color:#374151;">지금상차 ▼</div>
+              </div>
+            </div>
+            <div style="border:1.5px solid #d1d5db;border-radius:8px;padding:12px 16px;flex:1;min-width:160px;background:#f9fafb;">
+              <div style="font-size:11px;font-weight:700;color:#6b7280;margin-bottom:6px;">하차 기본 일자 / 시간</div>
+              <div style="display:flex;gap:6px;">
+                <div style="background:#fff;border:1px solid #d1d5db;border-radius:5px;padding:5px 8px;font-size:11px;color:#374151;">2026-06-13</div>
+                <div style="background:#fff;border:1px solid #d1d5db;border-radius:5px;padding:5px 8px;font-size:11px;color:#374151;">08:00 ▼</div>
+              </div>
+            </div>
+          </div>
+          <div style="padding:10px 14px;background:#fffbeb;border-radius:8px;font-size:12px;color:#92400e;">
+            💡 하차 일자·시간은 모든 행에 기본값으로 적용됩니다. 나중에 각 행에서 개별 변경도 가능해요.
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3 -->
+      <div style="margin-bottom:28px;border:1.5px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+        <div style="background:#faf5ff;padding:14px 20px;border-bottom:1.5px solid #e5e7eb;display:flex;align-items:center;gap:10px;">
+          <div style="background:#7c3aed;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;">3</div>
+          <div style="font-size:15px;font-weight:700;color:#5b21b6;">데이터 검토 및 수정</div>
+        </div>
+        <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px;">
+
+          <!-- 반드시 대조 문구 -->
+          <div style="background:#fee2e2;border:1.5px solid #fca5a5;border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:10px;">
+            <span style="font-size:20px;flex-shrink:0;">⚠️</span>
+            <div style="font-size:13px;font-weight:700;color:#dc2626;">특이사항·차이점 확인을 위해 반드시 원본 리스트와 대조해주세요!</div>
+          </div>
+
+          <!-- 셀 색상 설명 -->
+          <div>
+            <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;">🎨 셀 색상 의미</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+              <div style="display:flex;align-items:center;gap:6px;font-size:12px;"><div style="width:32px;height:18px;background:#ffe4e4;border-radius:3px;border:1px solid #fca5a5;"></div> 선택 필요</div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:12px;"><div style="width:32px;height:18px;background:#f0fdf4;border-radius:3px;border:1px solid #86efac;"></div> 선택 완료</div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:12px;"><div style="width:32px;height:18px;background:#fde68a;border-radius:3px;border-left:3px solid #f59e0b;"></div> ⚠️ <strong>경유 확인 필요</strong> → 원본 리스트에서 경유지 확인 후 <strong>경유지추가</strong> 버튼 사용</div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:12px;"><div style="width:32px;height:18px;background:#fde68a;border-radius:3px;border-left:3px solid #f59e0b;"></div> ⚠️ <strong>추가</strong> → 오더복사 버튼을 눌렀을 때 원본 행에 표시됩니다.</div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:12px;"><div style="width:32px;height:18px;background:#fce7f3;border-radius:3px;border:1.5px dashed #db2777;"></div> 입력 필요 (경유지 거래처·주소)</div>
+            </div>
+          </div>
+
+          <!-- 추가작업 버튼 설명 -->
+          <div>
+            <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;">🔧 추가작업 버튼</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <div style="display:flex;align-items:center;gap:8px;font-size:12px;">
+                <div style="background:#dbeafe;color:#1e40af;padding:3px 8px;border-radius:5px;font-weight:600;font-size:11px;white-space:nowrap;">경유지추가</div>
+                같은 key로 경유지 행을 추가합니다. 거래처·주소를 직접 입력해주세요.
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:12px;">
+                <div style="background:#ede9fe;color:#5b21b6;padding:3px 8px;border-radius:5px;font-weight:600;font-size:11px;white-space:nowrap;">오더복사</div>
+                동일 거래처에 차량을 추가 투입할 때 사용합니다 (새 key 부여).
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:12px;">
+                <div style="background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:5px;font-weight:600;font-size:11px;white-space:nowrap;">수정</div>
+                거래처·주소·수량 등 모든 항목을 직접 수정할 수 있습니다.
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:12px;">
+                <div style="background:#fee2e2;color:#dc2626;padding:3px 8px;border-radius:5px;font-weight:600;font-size:11px;white-space:nowrap;">삭제</div>
+                해당 행을 삭제합니다. 확인 팝업이 표시됩니다.
+              </div>
+            </div>
+          </div>
+
+          <!-- 경유지 순서 설명 -->
+          <div style="background:#f0f9ff;border-radius:8px;padding:14px 16px;">
+            <div style="font-size:12px;font-weight:700;color:#1e40af;margin-bottom:10px;">🔄 경유지 순서 변경</div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <!-- 경유지 시각화 -->
+              <div style="display:flex;flex-direction:column;gap:3px;">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <div style="background:#4f8ef7;width:5px;height:36px;border-radius:4px 4px 0 0;flex-shrink:0;"></div>
+                  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:11px;min-width:120px;">
+                    <span style="background:#dbeafe;color:#1e40af;font-size:10px;font-weight:700;padding:1px 5px;border-radius:99px;">경유지</span><br>
+                    <span style="color:#374151;">A 거래처</span>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <div style="background:#4f8ef7;width:5px;height:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative;">
+                    <div style="position:absolute;left:50%;transform:translateX(-50%);background:#fff;border:1.5px solid #cbd5e1;border-radius:4px;padding:1px 4px;font-size:12px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.1);">↕</div>
+                  </div>
+                  <div style="font-size:11px;color:#6b7280;padding-left:20px;">← 이 버튼으로 위아래 교환</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <div style="background:#4f8ef7;width:5px;height:36px;border-radius:0 0 4px 4px;flex-shrink:0;"></div>
+                  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:11px;min-width:120px;">
+                    <span style="background:#dcfce7;color:#166534;font-size:10px;font-weight:700;padding:1px 5px;border-radius:99px;">최종하차지</span><br>
+                    <span style="color:#374151;">B 거래처</span>
+                  </div>
+                </div>
+              </div>
+              <div style="font-size:12px;color:#374151;line-height:1.7;flex:1;min-width:180px;">
+                왼쪽 컬러 바의 <strong>↕ 버튼</strong>을 누르면<br>
+                인접한 두 행의 데이터가 교환됩니다.<br>
+                <span style="color:#6b7280;font-size:11px;">※ 수량·특이사항은 교환되지 않습니다.</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- STEP 4 -->
+      <div style="margin-bottom:16px;border:1.5px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+        <div style="background:#f0fdf4;padding:14px 20px;border-bottom:1.5px solid #e5e7eb;display:flex;align-items:center;gap:10px;">
+          <div style="background:#22c55e;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;">4</div>
+          <div style="font-size:15px;font-weight:700;color:#166534;">W1 파일 다운로드</div>
+        </div>
+        <div style="padding:18px 20px;">
+          <p style="font-size:13px;color:#374151;line-height:1.7;margin-bottom:10px;">모든 필수 항목이 채워지면 하단에 <strong>📥 W1 배차 파일 다운로드</strong> 버튼이 나타납니다.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+            <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;">
+              <span style="color:#22c55e;font-weight:700;font-size:16px;">●</span> 완료 건수가 전체와 일치하면 버튼 활성화
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;">
+              <span style="color:#dc2626;font-weight:700;font-size:16px;">●</span> 미완료 건이 있으면 버튼 숨김
+            </div>
+          </div>
+          <div style="padding:10px 14px;background:#fffbeb;border-radius:8px;font-size:12px;color:#92400e;">
+            💡 다운로드된 CSV 파일을 <strong>로지스팟 W1 (클라이언트 웹) 운송 → 대량 배차등록</strong>에 바로 업로드하면 됩니다.
+          </div>
+        </div>
+      </div>
+
+      <!-- W1 배차등록 방법 섹션 -->
+      <div style="margin-bottom:28px;border:1.5px solid #bfdbfe;border-radius:12px;overflow:hidden;">
+        <div style="background:#1e40af;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleW1Guide()">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:18px;">🌐</span>
+            <div style="font-size:15px;font-weight:700;color:#fff;">W1 (클라이언트 웹) 배차등록 방법</div>
+          </div>
+          <span id="w1arrow" style="color:#fff;font-size:16px;">▼</span>
+        </div>
+        <div id="w1GuideBody" style="display:none;padding:24px;">
+
+          <!-- 주의사항 -->
+          <div style="background:#fef3c7;border-left:4px solid #f59e0b;border-radius:0 8px 8px 0;padding:12px 16px;font-size:12px;color:#92400e;margin-bottom:20px;">
+            ⏱ 배차등록 시 처리에 <strong>다소 시간이 소요</strong>될 수 있습니다. 오류 발생 시 해당 항목의 <strong>수정 버튼</strong>을 통해 내용을 확인해주세요.
+          </div>
+
+          <!-- STEP 1 -->
+          <div style="display:flex;gap:16px;margin-bottom:24px;align-items:flex-start;">
+            <div style="background:#1e40af;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;margin-top:2px;">1</div>
+            <div style="flex:1;">
+              <div style="font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:6px;">로그인</div>
+              <div style="font-size:12px;color:#374151;line-height:1.7;margin-bottom:10px;">
+                아래 주소로 접속 후 로그인해주세요.
+              </div>
+              <a href="https://client.logi-spot.com/#/dashboard" target="_blank"
+                style="display:inline-flex;align-items:center;gap:6px;background:#eff6ff;border:1.5px solid #93c5fd;color:#1e40af;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;">
+                🔗 client.logi-spot.com 바로가기
+              </a>
+            </div>
+          </div>
+
+          <!-- STEP 2 -->
+          <div style="display:flex;gap:16px;margin-bottom:24px;align-items:flex-start;">
+            <div style="background:#1e40af;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;margin-top:2px;">2</div>
+            <div style="flex:1;">
+              <div style="font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:6px;">거래처 페이지 진입</div>
+              <div style="font-size:12px;color:#374151;line-height:1.7;margin-bottom:10px;">
+                우측 상단 <strong>초록색 동그라미 버튼</strong>을 클릭 →<br>
+                <strong>"인주로지스 주식회사"</strong> 검색 → 해당 거래처 선택
+              </div>
+              <div style="background:#f1f5f9;border-radius:8px;padding:12px 16px;font-size:12px;color:#374151;line-height:1.8;">
+                화면 우측 상단에 <strong>알림(종 모양) 아이콘 옆</strong>에 있는 <strong>원형 아이콘</strong>을 클릭해주세요.<br>
+                <span style="color:#6b7280;">※ 로그인한 계정에 따라 아이콘 색상과 텍스트(이니셜)가 다를 수 있습니다.</span>
+              </div>
+              <div style="margin-top:8px;background:#f1f5f9;border-radius:8px;padding:10px 14px;font-size:12px;color:#374151;">
+                검색창에 <strong style="color:#1e40af;">인주로지스 주식회사</strong> 입력 → 목록에서 선택
+              </div>
+            </div>
+          </div>
+
+          <!-- STEP 3 -->
+          <div style="display:flex;gap:16px;margin-bottom:24px;align-items:flex-start;">
+            <div style="background:#1e40af;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;margin-top:2px;">3</div>
+            <div style="flex:1;">
+              <div style="font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:6px;">대량 배차등록 메뉴 진입 → 파일 업로드</div>
+              <div style="font-size:12px;color:#374151;line-height:1.7;margin-bottom:10px;">
+                상단 <strong>운송</strong> 탭 클릭 → 좌측 메뉴에서 <strong>대량 배차등록</strong> 선택<br>
+                우측 상단 <strong>파일 업로드</strong> 버튼 클릭 → 팝업에서 변환된 CSV 파일 첨부 → <strong>등록하기</strong>
+              </div>
+              <!-- 메뉴 경로 시각화 -->
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+                <div style="background:#1e40af;color:#fff;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;">운송 탭</div>
+                <span style="color:#9ca3af;">→</span>
+                <div style="background:#374151;color:#fff;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;">대량 배차등록</div>
+                <span style="color:#9ca3af;">→</span>
+                <div style="background:#3b82f6;color:#fff;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;">📁 파일 업로드</div>
+                <span style="color:#9ca3af;">→</span>
+                <div style="background:#22c55e;color:#fff;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;">등록하기</div>
+              </div>
+              <!-- 팝업 시각화 -->
+              <div style="background:#fff;border:1.5px solid #e5e7eb;border-radius:10px;padding:14px 16px;">
+                <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;">대량배차요청 팝업</div>
+                <div style="border:2px dashed #93c5fd;border-radius:8px;padding:14px;text-align:center;background:#f0f9ff;font-size:11px;color:#6b7280;">
+                  <div style="font-size:20px;margin-bottom:4px;">+</div>
+                  마우스로 파일을 끌어와 추가할 수 있습니다.<br>
+                  <span style="font-size:10px;color:#9ca3af;">파일당 용량 10MB, 오더 500개까지 업로드 가능</span>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">
+                  <div style="background:#f3f4f6;color:#374151;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:600;">취소</div>
+                  <div style="background:#1e40af;color:#fff;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:600;">등록하기</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- STEP 4 -->
+          <div style="display:flex;gap:16px;align-items:flex-start;">
+            <div style="background:#1e40af;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;margin-top:2px;">4</div>
+            <div style="flex:1;">
+              <div style="font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:6px;">일괄 선택 후 배차요청 등록</div>
+              <div style="font-size:12px;color:#374151;line-height:1.7;margin-bottom:10px;">
+                목록이 표시되면 <strong>좌측 상단 체크박스</strong>로 전체 선택 →<br>
+                우측 하단 <strong style="color:#1e40af;">대량 배차요청 등록</strong> 버튼 클릭
+              </div>
+              <!-- 목록 시각화 -->
+              <div style="background:#fff;border:1.5px solid #e5e7eb;border-radius:10px;overflow:hidden;">
+                <div style="background:#f9fafb;border-bottom:1px solid #e5e7eb;padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:11px;color:#6b7280;">
+                  <div style="width:14px;height:14px;background:#1e40af;border-radius:3px;flex-shrink:0;"></div>
+                  <span style="font-weight:700;color:#374151;">구분</span>
+                  <span>차량정보</span><span>물품정보</span><span>상차지</span>
+                  <span style="margin-left:auto;">경유/하차</span><span>하차지</span><span>결제방식</span>
+                </div>
+                <div style="padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:11px;border-bottom:1px solid #f1f5f9;">
+                  <div style="width:14px;height:14px;background:#1e40af;border-radius:3px;flex-shrink:0;"></div>
+                  <span style="color:#374151;">용차</span><span style="color:#6b7280;">윙바디 5톤 편도</span>
+                  <span style="color:#374151;margin-left:8px;">하츠</span>
+                  <span style="margin-left:auto;background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:99px;font-size:10px;font-weight:700;">1곳</span>
+                  <span style="color:#374151;">에스케이에코플랜트</span>
+                </div>
+                <div style="padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:11px;color:#9ca3af;">
+                  <div style="width:14px;height:14px;background:#1e40af;border-radius:3px;flex-shrink:0;"></div>
+                  <span>용차</span><span>윙바디 5톤 편도</span>
+                  <span style="margin-left:8px;">하츠</span>
+                  <span style="margin-left:auto;background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:99px;font-size:10px;font-weight:700;">2곳</span>
+                  <span>이설림자택</span>
+                </div>
+                <div style="padding:8px 12px;text-align:right;">
+                  <div style="display:inline-block;background:#1e40af;color:#fff;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:700;">대량 배차요청 등록</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /w1GuideBody -->
+      </div>
+
+      <!-- 닫기 버튼 -->
+      <div style="text-align:center;">
+        <button onclick="toggleGuide()" style="background:#1a1a2e;color:#fff;border:none;padding:12px 40px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">✕ 가이드 닫기</button>
+      </div>
+
+    </div><!-- /padding -->
+  </div><!-- /card -->
+</div><!-- /overlay -->
+<div class="container">
+
+<!-- STEP 1 -->
+<div class="step-card active" id="card1">
+  <div class="step-header">
+    <div class="step-num">1</div>
+    <div><div class="step-title">특판 배차 파일 업로드</div><div class="step-desc">거래처로부터 받은 특판 배차 엑셀 파일을 올려주세요 (.xlsx)</div></div>
+  </div>
+  <div class="upload-zone" id="uploadZone">
+    <div style="font-size:36px;margin-bottom:8px;">📂</div>
+    <div style="font-size:15px;font-weight:600;">파일을 여기에 끌어다 놓거나 클릭해서 선택</div>
+    <div style="font-size:13px;color:#6b7280;margin-top:6px;">특판배차_XXXXXX.xlsx</div>
+  </div>
+  <div id="fileLoaded" class="hidden" style="margin-top:14px;padding:12px 16px;background:#f0fdf4;border-radius:8px;color:#16a34a;font-weight:600;font-size:14px;"></div>
+</div>
+
+<!-- STEP 2 -->
+<div class="step-card" id="card2">
+  <div class="step-header">
+    <div class="step-num">2</div>
+    <div><div class="step-title">일자 입력</div><div class="step-desc">상차·하차 기본 일자와 시간을 선택한 후 입력 완료를 눌러주세요 (각 행에서 개별 변경 가능)</div></div>
+  </div>
+  <div class="datetime-group">
+    <div class="datetime-block">
+      <label>상차 일자 / 시간</label>
+      <div class="datetime-row">
+        <input type="date" id="departDate" class="dt-date">
+        <select id="departTime" class="dt-sel"></select>
+      </div>
+    </div>
+    <div class="datetime-block">
+      <label>하차 기본 일자 / 시간</label>
+      <div class="datetime-row">
+        <input type="date" id="arriveDate" class="dt-date">
+        <select id="arriveTime" class="dt-sel"></select>
+      </div>
+    </div>
+  </div>
+  <div id="datePreview" class="date-preview hidden"></div><br>
+  <button class="btn-confirm" id="confirmBtn" disabled>✅ 입력 완료</button>
+</div>
+
+<!-- STEP 3 -->
+<div class="step-card" id="card3">
+  <div class="step-header">
+    <div class="step-num">3</div>
+    <div><div class="step-title">데이터 변환 및 검토</div><div class="step-desc">빨간색 칸을 선택해주세요. ⚠️ 경유 확인 필요 표시된 행은 원본 리스트 확인 후 경유지추가 버튼을 눌러주세요.</div></div>
+  </div>
+  <div id="placeholder3" style="color:#9ca3af;font-size:14px;">← 먼저 파일 업로드와 일자 입력을 완료해주세요</div>
+  <div id="resultArea" class="hidden">
+    <div class="chips" id="chips"></div>
+    <div style="background:#f0fdf4;border-left:4px solid #22c55e;border-radius:0 8px 8px 0;padding:10px 16px;font-size:13px;color:#166534;margin-bottom:10px;">
+      📍 <strong>고정 상차지: [하츠]</strong> 경기 평택시 진위면 청호리 346
+    </div>
+    <div class="warn-note">
+      ⚠️ <strong>빨간색 칸</strong>은 선택이 필요한 항목이며, 나머지 자동으로 선택된 값들도 이상이 없는지 꼭 확인해주세요.<br>
+      경유 오더의 경우 그룹 바의 <strong>↕ 버튼</strong>으로 경유지 순서를 바꿀 수 있습니다.
+    </div>
+    <div class="table-wrap">
+      <table>
+        <colgroup>
+          <col style="width:28px">  <!-- 그룹바 -->
+          <col style="width:4%">    <!-- key -->
+          <col style="width:9%">    <!-- 하차일자/시간 -->
+          <col style="width:9%">    <!-- 거래처 -->
+          <col style="width:12%">   <!-- 하차주소 -->
+          <col style="width:6%">    <!-- 담당자 -->
+          <col style="width:8%">    <!-- 연락처 -->
+          <col style="width:6%">    <!-- 혼적 -->
+          <col style="width:7%">    <!-- 차종 -->
+          <col style="width:7%">    <!-- 톤수 -->
+          <col style="width:7%">    <!-- 요청차량 -->
+          <col style="width:7%">    <!-- 물품명 -->
+          <col style="width:4%">    <!-- 물품개수 -->
+          <col style="width:9%">    <!-- 수량 -->
+          <col style="width:6%">    <!-- 특이사항 -->
+          <col style="width:5%">    <!-- 추가작업 -->
+        </colgroup>
+        <thead><tr>
+          <th></th>
+          <th>key</th>
+          <th class="th-navy">하차 일자/시간</th>
+          <th>거래처</th>
+          <th>하차주소</th>
+          <th>담당자</th>
+          <th>담당자연락처</th>
+          <th class="th-purple">혼적 *</th>
+          <th class="th-purple">차종 *</th>
+          <th class="th-purple">톤수 *</th>
+          <th>요청차량</th>
+          <th>물품명</th>
+          <th>물품개수</th>
+          <th>수량(전달사항)</th>
+          <th>특이사항</th>
+          <th class="th-dark">추가작업</th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- STEP 4 -->
+<div class="step-card hidden" id="card4">
+  <div class="step-header">
+    <div class="step-num">4</div>
+    <div><div class="step-title">W1 파일 다운로드</div><div class="step-desc">로지스팟 W1 대량배차 업로드용 CSV 파일이 생성됩니다</div></div>
+  </div>
+  <div class="info-note">✅ 모든 필수 항목이 입력되었습니다. 아래 버튼을 눌러 파일을 받으세요.</div>
+  <button class="btn-dl" onclick="downloadCSV()">📥 W1 배차 파일 다운로드</button>
+</div>
+</div>
+<footer>하츠 운영기획팀 · 특판 배차 변환기 v1.6</footer>
+
+<script>
+// ── 상수 ──────────────────────────────────────
+const FIXED = {
+  상차회사명:'하츠', 상차주소:'경기 평택시 진위면 청호리 346',
+  그룹명:'하츠_특판', 전체물품명:'가벼운박스',
+  전달사항차주:'▶인텔리안  맞은편 출입구 \nㄴ상차지 현장직원에게 상차 장소 확인',
+  결제방법:'계산서', 운송사:'로지스팟-평택지점',
+};
+const W1 = ['key*','상차일자*','상차시간*','상차회사명*','상차주소*','상차담당자이름','상차담당자번호','상차지 고유코드','상차지 특이사항','상차지 메모','하차일자*','하차시간*','하차회사명*','하차주소*','하차담당자이름','하차담당자번호','하차지 고유코드','하차/상차 구분','하차지 특이사항','하차지 메모','그룹명*','전체물품명*','전체물품 개수','중량','물품 가로규격','물품 세로규격','물품 높이규격','물품CBM','왕복','혼적*','일대','요청 차종*','요청 차량 톤수*','전달사항(운송사)','전달사항(차주)','내부메모','결제방법*','자체관리코드','운송사*','물품명1','물품개수1','물품코드1','물품명2','물품개수2','물품코드2','운송유형','상하차방법','포장방법'];
+const SRC = { 거래처:2, 축:3, t5:4, t35:5, t25:6, t14:7, t1:8, t1m:9, 주소:12, 수량:13 };
+const VLB = { 축:'축', t5:'5톤', t35:'3.5톤', t25:'2.5톤', t14:'1.4톤', t1:'1톤', t1m:'1m' };
+const VEHICLES = ['다마스','라보','카고/윙','카고','윙바디','탑','냉동','냉장'];
+const TONS = ['1톤','1.2톤','2.5톤','3.5톤','5톤','5톤플러스','5톤축','8톤','11톤','11톤축','18톤','25톤'];
+const GCOLORS = ['#4f8ef7','#e05c9b','#16a34a','#f59e0b','#8b5cf6','#0891b2','#dc2626','#65a30d','#7c3aed','#0369a1'];
+
+// ── 상태 ──────────────────────────────────────
+// rows: 행 배열. 각 행은 고정 슬롯(slot)을 가짐.
+// 핵심: keyGroup은 슬롯에 고정. 순서 교환 시 data만 교환.
+// slot: { id, keyGroup, isWaypoint, isOrderCopy, editing, data }
+let rows = [];
+let nextId = 0;
+let fileReady = false;
+let dateReady = false;
+let defArrDate = '';
+let defArrTime = '당일하차';
+let defDeptTime = '지금상차';
+
+// ── 시간 옵션 ──────────────────────────────────
+function pad2(n){ return String(n).padStart(2,'0'); }
+function fillSel(sel, first){
+  sel.innerHTML = '';
+  const add = (v)=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); };
+  add(first);
+  for(let h=0;h<24;h++) for(let m of [0,30]) add(pad2(h)+':'+pad2(m));
+}
+function timeOpts(sel){
+  let h = '<option value="당일하차"'+(sel==='당일하차'?' selected':'')+'>당일하차</option>';
+  for(let hh=0;hh<24;hh++) for(let m of [0,30]){
+    const v=pad2(hh)+':'+pad2(m);
+    h+='<option value="'+v+'"'+(sel===v?' selected':'')+'>'+v+'</option>';
+  }
+  return h;
+}
+fillSel(document.getElementById('departTime'),'지금상차');
+fillSel(document.getElementById('arriveTime'),'당일하차');
+
+// ── 날짜 입력 ──────────────────────────────────
+function onDI(){
+  const dd=document.getElementById('departDate').value;
+  const dt=document.getElementById('departTime').value;
+  const ad=document.getElementById('arriveDate').value;
+  const at=document.getElementById('arriveTime').value;
+  const prev=document.getElementById('datePreview');
+  const btn=document.getElementById('confirmBtn');
+  if(dd&&ad){ prev.textContent='상차: '+fmtD(dd)+' '+dt+'  →  하차: '+fmtD(ad)+' '+at; prev.classList.remove('hidden'); btn.disabled=false; }
+  else { prev.classList.add('hidden'); btn.disabled=true; }
+}
+['departDate','departTime','arriveDate','arriveTime'].forEach(id=>{
+  const el=document.getElementById(id);
+  el.addEventListener('input',onDI);
+  el.addEventListener('change',onDI);
+});
+document.getElementById('confirmBtn').addEventListener('click',function(){
+  defArrDate=document.getElementById('arriveDate').value;
+  defArrTime=document.getElementById('arriveTime').value;
+  defDeptTime=document.getElementById('departTime').value;
+  dateReady=true;
+  document.getElementById('card2').classList.add('done');
+  this.textContent='✅ 입력 완료'; this.style.background='#16a34a'; this.disabled=true;
+  rows.forEach(r=>{ r.data.arriveDate=r.data.arriveDate||defArrDate; r.data.arriveTime=defArrTime; });
+  tryShow();
+});
+function fmtD(s){ if(!s)return''; const[y,m,d]=s.split('-'); return y+'.'+m+'.'+d; }
+
+// ── 파일 업로드 ──────────────────────────────
+(function(){
+  const zone=document.getElementById('uploadZone');
+  zone.addEventListener('click',function(){
+    const inp=document.createElement('input'); inp.type='file'; inp.accept='.xlsx';
+    inp.addEventListener('change',function(){ if(this.files&&this.files[0]) processFile(this.files[0]); });
+    inp.click();
+  });
+  zone.addEventListener('dragover',function(e){ e.preventDefault(); e.stopPropagation(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave',function(e){ e.preventDefault(); zone.classList.remove('dragover'); });
+  zone.addEventListener('drop',function(e){ e.preventDefault(); e.stopPropagation(); zone.classList.remove('dragover'); const f=e.dataTransfer.files[0]; if(f) processFile(f); });
+})();
+
+function exPhone(t){ const m=t.match(/01[016789][-.\s]?\d{3,4}[-.\s]?\d{4}/); return m?m[0].replace(/[.\s]/g,'-'):''; }
+function exName(t,p){ let s=t; if(p) s=s.replace(p,'').replace(/01[016789][-.\s]?\d{3,4}[-.\s]?\d{4}/,''); return s.trim().replace(/[-,·\/]+$/,'').trim(); }
+function detVeh(r){
+  for(const [k,lb] of Object.entries(VLB)){
+    const i=SRC[k];
+    if(i!==undefined&&r[i]!==null&&r[i]!==undefined&&String(r[i]).trim()!==''){
+      const raw=String(r[i]).trim();
+      return lb+' / '+(/^\d+$/.test(raw)?lb+' '+raw+'대':raw);
+    }
+  }
+  return'(없음)';
+}
+
+// 혼적 추론: m 또는 M 포함이면 혼적, 아니면 독차
+function inferHonjeok(veh){
+  return /[mM]/.test(veh) ? '혼적' : '독차';
+}
+
+// 톤수 추론
+function inferTonsu(veh){
+  if(/축/.test(veh))   return '5톤축';
+  if(/25톤/.test(veh)) return '25톤';
+  if(/18톤/.test(veh)) return '18톤';
+  if(/11톤축/.test(veh)) return '11톤축';
+  if(/11톤/.test(veh)) return '11톤';
+  if(/8톤/.test(veh))  return '8톤';
+  if(/5톤플러스/.test(veh)) return '5톤플러스';
+  if(/5톤/.test(veh))  return '5톤';
+  if(/3\.5톤/.test(veh)||/3\.5/.test(veh)) return '3.5톤';
+  if(/2\.5톤/.test(veh)||/2\.5/.test(veh)) return '2.5톤';
+  if(/1\.4톤/.test(veh)||/1\.4/.test(veh)) return '1.2톤'; // 1.4톤 → 1.2톤
+  if(/1\.2톤/.test(veh)||/1\.2/.test(veh)) return '1.2톤';
+  if(/1톤/.test(veh)||/1 톤/.test(veh))   return '1톤';
+  if(/[mM]/.test(veh)) return '1톤'; // 1m 계열 기본 1톤
+  return '';
+}
+
+function processFile(file){
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    const wb=XLSX.read(ev.target.result,{type:'array'});
+    const sn=wb.SheetNames.find(n=>n.includes('특판'))||wb.SheetNames[0];
+    const raw=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null});
+    rows=[]; let kg=1;
+    for(let i=2;i<raw.length;i++){
+      const r=raw[i]; if(!r||!r[SRC.거래처]) continue;
+      const ar=r[SRC.주소]?String(r[SRC.주소]):'';
+      const ls=ar.split('\n').map(l=>l.trim()).filter(Boolean);
+      const ph=exPhone(ls[1]||''); const nm=ls[1]?exName(ls[1],ph):'';
+      const veh = detVeh(r);
+      const autoHonjeok = inferHonjeok(veh);
+      const autoTonsu   = inferTonsu(veh);
+      // 차량 수 감지: "2대","2 대" 이상이면 특이사항에 표시
+      const carCnt = veh.match(/(\d+)\s*대/);
+      const multiCar = carCnt && parseInt(carCnt[1]) >= 2;
+      const baseTeuki = ls.length>=3 ? '경유 확인 필요' : '';
+      const teuki = multiCar
+        ? (baseTeuki ? baseTeuki + '\n차량 대 수 확인 필요' : '차량 대 수 확인 필요')
+        : baseTeuki;
+      rows.push({
+        id:nextId++, keyGroup:kg++,
+        isWaypoint:false, isOrderCopy:false, editing:false,
+        data:{
+          거래처:String(r[SRC.거래처]).trim(), 하차주소:ls[0]||'',
+          담당자:nm, 담당자연락처:ph,
+          수량:r[SRC.수량]?String(r[SRC.수량]).trim():'',
+          특이사항:teuki,
+          요청차량:veh,
+          혼적:autoHonjeok, 차종:'윙바디', 톤수:autoTonsu,
+          물품명:'가벼운박스', 물품개수:'',
+          arriveDate:defArrDate, arriveTime:defArrTime,
+        }
+      });
+    }
+    document.getElementById('fileLoaded').textContent='✅ "'+file.name+'" 읽기 완료 — '+rows.length+'건';
+    document.getElementById('fileLoaded').classList.remove('hidden');
+    document.getElementById('card1').classList.add('done');
+    fileReady=true; tryShow();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── 렌더링 ────────────────────────────────────
+function tryShow(){
+  if(!fileReady||!dateReady) return;
+  rows.forEach(r=>{ r.data.arriveDate=r.data.arriveDate||defArrDate; r.data.arriveTime=defArrTime; });
+  document.getElementById('card3').classList.add('active');
+  document.getElementById('placeholder3').classList.add('hidden');
+  document.getElementById('resultArea').classList.remove('hidden');
+  render(); chips();
+}
+
+// keyGroup은 슬롯에 고정 — 재계산 없음
+// displayKey: keyGroup 순서대로 1,2,3... 을 매핑 (화면 표시용)
+function buildKeyMap(){
+  const seen=[], map={};
+  rows.forEach(r=>{
+    if(!seen.includes(r.keyGroup)) seen.push(r.keyGroup);
+  });
+  seen.forEach((kg,i)=>{ map[kg]=i+1; });
+  return map;
+}
+
+function gc(kg){ return GCOLORS[(kg-1)%GCOLORS.length]; }
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function render(){
+  const keyMap = buildKeyMap();
+
+  // 그룹별 슬롯 인덱스 목록
+  const gmap={};
+  rows.forEach((r,i)=>{ (gmap[r.keyGroup]=gmap[r.keyGroup]||[]).push(i); });
+
+  const tbody=document.getElementById('tbody');
+  tbody.innerHTML='';
+
+  rows.forEach((row,idx)=>{
+    const d=row.data;
+    const filled=d.혼적&&d.차종&&d.톤수;
+    const hasTeuki=d.특이사항&&d.특이사항.trim()!=='';
+    const dispKey=keyMap[row.keyGroup];
+
+    const grpIdxs=gmap[row.keyGroup]||[idx];
+    const isGrouped=grpIdxs.length>1;
+    const posInGrp=grpIdxs.indexOf(idx);
+    const isFirst=posInGrp===0;
+    const isLast=posInGrp===grpIdxs.length-1;
+    const color=isGrouped?gc(row.keyGroup):'transparent';
+
+    // ── 그룹 바 셀: 컬러 바 + ↕ 버튼 ──
+    // 구조: [위쪽 색바 세그먼트] + [↕버튼(마지막 아닐때)] + [아래쪽 색바 세그먼트]
+    // 버튼이 두 행 사이 경계에 오도록 위/아래 바를 나눔
+    let barInner='';
+    if(isGrouped){
+      const radTop = isFirst ? 'border-radius:4px 4px 0 0;' : '';
+      const radBot = isLast  ? 'border-radius:0 0 4px 4px;' : '';
+      const radOnly= (isFirst&&isLast) ? 'border-radius:4px;' : '';
+
+      if(!isLast){
+        // 위쪽 바 세그먼트 (flex:1 → 셀 위쪽 채움)
+        barInner += '<div class="bar-seg" style="background:'+color+';flex:1;'+(isFirst?'border-radius:4px 4px 0 0;':'')+'"></div>';
+        // ↕ 버튼: posInGrp번째와 posInGrp+1번째 data 교환
+        barInner += '<button class="btn-swap" onclick="swapData('+row.keyGroup+','+posInGrp+','+(posInGrp+1)+')" title="아래 행과 순서 바꾸기">↕</button>';
+      } else {
+        // 마지막 행: 버튼 없이 바만 (위에서 이어짐)
+        barInner += '<div class="bar-seg" style="background:'+color+';flex:1;border-radius:0 0 4px 4px;"></div>';
+      }
+    } else {
+      barInner='<div style="width:5px;flex:1;"></div>';
+    }
+    const barCell='<td class="bar-cell"><div class="bar-wrap">'+barInner+'</div></td>';
+
+    // 배지: 그룹화된 경우 위치에 따라 경유지/최종하차지 구분
+    let badge = '';
+    if(row.isOrderCopy){
+      badge = '<br><span class="badge bo">추가</span>';
+    } else if(isGrouped){
+      if(!isLast){
+        // 마지막이 아닌 행 = 경유지
+        badge = '<br><span class="badge bwp">경유지</span>';
+      } else {
+        // 마지막 행 = 최종하차지
+        badge = '<br><span class="badge bwf">최종하차지</span>';
+      }
+    }
+    const keyCell='<td style="font-weight:700;text-align:center;font-size:13px;">'+dispKey+badge+'</td>';
+    const dtCell='<td><div class="row-dt">'
+      +'<div><span class="lbl">하차일자</span><input type="date" value="'+(d.arriveDate||'')+'" onchange="upd('+row.id+',\'arriveDate\',this.value)"></div>'
+      +'<div><span class="lbl">하차시간</span><select onchange="upd('+row.id+',\'arriveTime\',this.value)">'+timeOpts(d.arriveTime||defArrTime)+'</select></div>'
+      +'</div></td>';
+
+    const tr=document.createElement('tr');
+    tr.id='tr'+row.id;
+    tr.className=row.editing?'r-editing':(filled?'r-normal':'r-error');
+
+    const g=row.data.거래처; const ha=row.data.하차주소;
+    const gEmpty=g==='__EMPTY__', haEmpty=ha==='__EMPTY__';
+
+    if(row.editing){
+      tr.innerHTML=barCell+keyCell+dtCell
+        +'<td><textarea class="edit-inp" placeholder="거래처 입력" onchange="upd('+row.id+',\'거래처\',this.value||\'__EMPTY__\')">'+(gEmpty?'':esc(g))+'</textarea></td>'
+        +'<td><textarea class="edit-inp" placeholder="하차주소 입력" onchange="upd('+row.id+',\'하차주소\',this.value||\'__EMPTY__\')">'+(haEmpty?'':esc(ha))+'</textarea></td>'
+        +'<td><textarea class="edit-inp" onchange="upd('+row.id+',\'담당자\',this.value)">'+esc(d.담당자)+'</textarea></td>'
+        +'<td><textarea class="edit-inp" onchange="upd('+row.id+',\'담당자연락처\',this.value)">'+esc(d.담당자연락처)+'</textarea></td>'
+        +'<td><select class="c-sel ok" onchange="upd('+row.id+',\'혼적\',this.value)">'+['독차','혼적'].map(v=>'<option'+(d.혼적===v?' selected':'')+'>'+v+'</option>').join('')+'</select></td>'
+        +'<td><select class="c-sel ok" onchange="upd('+row.id+',\'차종\',this.value)">'+VEHICLES.map(v=>'<option'+(d.차종===v?' selected':'')+'>'+v+'</option>').join('')+'</select></td>'
+        +'<td><select class="c-sel" onchange="upd('+row.id+',\'톤수\',this.value)"><option value="">선택</option>'+TONS.map(v=>'<option'+(d.톤수===v?' selected':'')+'>'+v+'</option>').join('')+'</select></td>'
+        +'<td style="font-size:11px;color:#555;">'+esc(d.요청차량)+'</td>'
+        +(()=>{
+          const pmOpts2 = ['가벼운박스','파렛트','직접입력'].map(v=>{
+            const isSel2 = (v==='직접입력' && d.물품명==='ITEM_CUSTOM') || d.물품명===v;
+            return '<option value="'+v+'"'+(isSel2?' selected':'')+'>'+v+'</option>';
+          }).join('');
+          const isCustom2 = (d.물품명==='ITEM_CUSTOM'||(d.물품명!==''&&d.물품명!=='가벼운박스'&&d.물품명!=='파렛트'));
+          const customVal2 = (d.물품명==='ITEM_CUSTOM') ? '' : (isCustom2 ? d.물품명 : '');
+          const customField2 = isCustom2
+            ? '<input class="edit-inp-sm" style="margin-top:3px;" value="'+esc(customVal2)+'" placeholder="물품명 입력" onchange="updR('+row.id+',\'물품명\',this.value)">'
+            : '';
+          return '<td>'
+            +'<select class="c-sel ok" onchange="onPhChange('+row.id+',this.value)">'+pmOpts2+'</select>'
+            +customField2
+            +'</td>';
+        })()
+        +'<td><input class="edit-inp-sm" value="'+esc(d.물품개수)+'" placeholder="-" onchange="updR('+row.id+',\'물품개수\',this.value)"></td>'
+        +'<td><textarea class="edit-inp" onchange="upd('+row.id+',\'수량\',this.value)">'+esc(d.수량)+'</textarea></td>'
+        +'<td><textarea class="edit-inp" onchange="upd('+row.id+',\'특이사항\',this.value)">'+esc(d.특이사항)+'</textarea></td>'
+        +'<td><div class="act-btns"><button class="btn-a ba-done" onclick="doneEdit('+row.id+')">수정완료</button></div></td>';
+    } else {
+      tr.innerHTML=barCell+keyCell+dtCell
+        +(gEmpty
+          ?'<td class="c-empty"><input class="edit-inp-sm" style="border-color:#db2777;" value="" placeholder="거래처 입력" onchange="updWayField('+row.id+',\'거래처\',this.value)"></td>'
+          :'<td style="font-size:12px;">'+esc(g)+'</td>')
+        +(haEmpty
+          ?'<td class="c-empty"><input class="edit-inp-sm" style="border-color:#db2777;width:100%;" value="" placeholder="하차주소 입력" onchange="updWayField('+row.id+',\'하차주소\',this.value)"></td>'
+          :'<td style="font-size:12px;">'+esc(ha)+'</td>')
+        +(row.isWaypoint
+          ?'<td><input class="edit-inp-sm" value="'+esc(d.담당자)+'" placeholder="담당자" onchange="updWayField('+row.id+',\'담당자\',this.value)"></td>'
+          :'<td style="font-size:12px;">'+esc(d.담당자)+'</td>')
+        +(row.isWaypoint
+          ?'<td><input class="edit-inp-sm" value="'+esc(d.담당자연락처)+'" placeholder="연락처" onchange="updWayField('+row.id+',\'담당자연락처\',this.value)"></td>'
+          :'<td style="font-size:12px;">'+esc(d.담당자연락처)+'</td>')
+        +'<td class="'+(d.혼적?'c-done':'c-need')+'">'
+          +'<select class="c-sel'+(d.혼적?' ok':'')+'" onchange="setV('+row.id+',\'혼적\',this.value,this)">'
+          +'<option value="">선택</option>'+['독차','혼적'].map(v=>'<option'+(d.혼적===v?' selected':'')+'>'+v+'</option>').join('')+'</select></td>'
+        +'<td class="'+(d.차종?'c-done':'c-need')+'">'
+          +'<select class="c-sel'+(d.차종?' ok':'')+'" onchange="setV('+row.id+',\'차종\',this.value,this)">'
+          +'<option value="">선택</option>'+VEHICLES.map(v=>'<option'+(d.차종===v?' selected':'')+'>'+v+'</option>').join('')+'</select></td>'
+        +'<td class="'+(d.톤수?'c-done':'c-need')+'">'
+          +'<select class="c-sel'+(d.톤수?' ok':'')+'" onchange="setV('+row.id+',\'톤수\',this.value,this)">'
+          +'<option value="">선택</option>'+TONS.map(v=>'<option'+(d.톤수===v?' selected':'')+'>'+v+'</option>').join('')+'</select></td>'
+        +'<td style="font-size:11px;color:#555;word-break:break-all;">'+esc(d.요청차량)+'</td>'
+        +(()=>{
+          // 물품명 셀: select + 직접입력 필드
+          const pmOpts = ['가벼운박스','파렛트','직접입력'].map(v=>{
+            const isSel = (v==='직접입력' && d.물품명==='ITEM_CUSTOM') || d.물품명===v;
+            return '<option value="'+v+'"'+(isSel?' selected':'')+'>'+v+'</option>';
+          }).join('');
+          const isCustom = (d.물품명==='ITEM_CUSTOM'||( d.물품명!==''&&d.물품명!=='가벼운박스'&&d.물품명!=='파렛트'));
+          const customVal = (d.물품명==='ITEM_CUSTOM') ? '' : (isCustom ? d.물품명 : '');
+          const customField = isCustom
+            ? '<input class="edit-inp-sm" style="margin-top:3px;" value="'+esc(customVal)+'" placeholder="물품명 입력" onchange="updR('+row.id+',\'물품명\',this.value)">'
+            : '';
+          return '<td>'
+            +'<select class="c-sel ok" style="border-color:#d1d5db;background:#fff;" onchange="onPhChange('+row.id+',this.value)">'+pmOpts+'</select>'
+            +customField
+            +'</td>';
+        })()
+        +'<td><input class="edit-inp" style="border-color:#d1d5db;background:#fff;width:100%;" value="'+esc(d.물품개수)+'" placeholder="-" onchange="updR('+row.id+',\'물품개수\',this.value)"></td>'
+        +'<td style="font-size:11px;word-break:break-all;white-space:normal;">'+esc(d.수량)+'</td>'
+        +(()=>{
+          const tv=d.특이사항||'';
+          if(tv==='✓ 경유'||tv==='✓ 추가') return '<td style="font-size:11px;color:#6b7280;">'+esc(tv)+'</td>';
+          if(tv&&tv!=='') return '<td class="c-warn" style="font-size:11px;white-space:pre-wrap;">⚠️ '+esc(tv)+'</td>';
+          return '<td style="font-size:11px;"></td>';
+        })()
+        +'<td><div class="act-btns">'
+          +'<button class="btn-a ba-way" onclick="addWay('+row.id+','+idx+')">경유지추가</button>'
+          +'<button class="btn-a ba-ord" onclick="addOrd('+row.id+','+idx+')">오더복사</button>'
+          +'<button class="btn-a ba-edt" onclick="startEdit('+row.id+')">수정</button>'
+          +'<button class="btn-a ba-del" onclick="delRow('+row.id+')">삭제</button>'
+        +'</div></td>';
+    }
+    tbody.appendChild(tr);
+  });
+}
+
+// ── 행 조작 ───────────────────────────────────
+function byId(id){ return rows.find(r=>r.id===id); }
+function updR(id,key,val){ const r=byId(id); if(!r) return; r.data[key]=(key==='물품명'&&val==='')?'ITEM_CUSTOM':val; }
+function updWayField(id,key,val){
+  const r=byId(id); if(!r) return;
+  r.data[key]=val||'__EMPTY__';
+  // 실제값이 입력되면 __EMPTY__ 해제
+  if(val&&val.trim()!=='') r.data[key]=val.trim();
+  // 셀 색상은 render에서 처리하므로 render 호출 안 함 (타이핑 중 re-render 방지)
+}
+function onPhChange(id,val){
+  const r=byId(id); if(!r) return;
+  if(val==='직접입력'){
+    r.data.물품명='ITEM_CUSTOM'; // 직접입력 sentinel
+  } else {
+    r.data.물품명=val;
+  }
+  render(); chips();
+}
+function upd(id,key,val){ const r=byId(id); if(r) r.data[key]=val; }
+
+function setV(id,key,val,sel){
+  const r=byId(id); if(!r) return;
+  r.data[key]=val;
+  sel.classList.toggle('ok',!!val);
+  sel.closest('td').className=val?'c-done':'c-need';
+  const tr=document.getElementById('tr'+id);
+  if(r.data.혼적&&r.data.차종&&r.data.톤수) tr.classList.remove('r-error');
+  else tr.classList.add('r-error');
+  chips();
+}
+
+function startEdit(id){ const r=byId(id); if(r){r.editing=true; render(); chips();} }
+function doneEdit(id) { const r=byId(id); if(r){r.editing=false; render(); chips();} }
+
+function delRow(id){
+  if(!confirm('선택한 오더를 삭제하시겠습니까?')) return;
+  rows=rows.filter(r=>r.id!==id); render(); chips();
+}
+
+function addWay(sourceId, afterIdx){
+  const src=byId(sourceId); if(!src) return;
+  // 경유지추가: '경유 확인 필요' 텍스트만 '✓ 경유'로 교체, 나머지는 유지
+  src.data.특이사항 = src.data.특이사항.replace('경유 확인 필요', '✓ 경유');
+  rows.splice(afterIdx+1,0,{
+    id:nextId++, keyGroup:src.keyGroup,
+    isWaypoint:true, isOrderCopy:false, editing:false,
+    data:{...src.data, 거래처:'__EMPTY__', 하차주소:'__EMPTY__',
+          담당자:'', 담당자연락처:'', 특이사항:'', 수량:''}
+  });
+  render(); chips();
+}
+
+function addOrd(sourceId, afterIdx){
+  const src=byId(sourceId); if(!src) return;
+  const maxKg=Math.max(...rows.map(r=>r.keyGroup));
+  // 오더복사: '차량 대 수 확인 필요' 텍스트만 '✓ 추가'로 교체, 나머지는 유지
+  src.data.특이사항 = src.data.특이사항.replace('차량 대 수 확인 필요', '✓ 추가');
+  rows.splice(afterIdx+1,0,{
+    id:nextId++, keyGroup:maxKg+1,
+    isWaypoint:false, isOrderCopy:true, editing:false,
+    data:{...src.data, 특이사항: src.data.특이사항}
+  });
+  render(); chips();
+}
+
+// ── 핵심: data만 교환, 슬롯(keyGroup)은 고정 ─
+// 수량·특이사항은 교환 제외 (항상 첫 오더에 수량이 있어야 함)
+const SWAP_SKIP = ['수량', '특이사항'];
+function swapData(kg, posA, posB){
+  const gidxs=[];
+  rows.forEach((r,i)=>{ if(r.keyGroup===kg) gidxs.push(i); });
+  if(posA<0||posB>=gidxs.length) return;
+  const iA=gidxs[posA], iB=gidxs[posB];
+  const dA=rows[iA].data, dB=rows[iB].data;
+  // 수량·특이사항 제외한 키만 교환
+  const keys=Object.keys(dA).filter(k=>!SWAP_SKIP.includes(k));
+  const tmpA={}, tmpB={};
+  keys.forEach(k=>{ tmpA[k]=dA[k]; tmpB[k]=dB[k]; });
+  keys.forEach(k=>{ dA[k]=tmpB[k]; dB[k]=tmpA[k]; });
+  render(); chips();
+}
+
+function chips(){
+  const total=rows.length;
+  const done=rows.filter(r=>r.data.혼적&&r.data.차종&&r.data.톤수).length;
+  const rem=total-done;
+  document.getElementById('chips').innerHTML=
+    '<span class="chip chip-b">전체 '+total+'건</span>'+
+    '<span class="chip chip-g">완료 '+done+'건</span>'+
+    (rem>0?'<span class="chip chip-r">입력 필요 '+rem+'건</span>':'');
+  const c4=document.getElementById('card4');
+  if(rem===0&&total>0){c4.classList.remove('hidden');c4.classList.add('done');}
+  else c4.classList.add('hidden');
+}
+
+// ── CSV 다운로드 ──────────────────────────────
+function csvV(v){ const s=String(v??''); return(s.includes(',')||s.includes('\n')||s.includes('"'))?'"'+s.replace(/"/g,'""')+'"':s; }
+
+function downloadCSV(){
+  const keyMap=buildKeyMap();
+  const dd=document.getElementById('departDate').value;
+  const out=[W1.join(',')];
+  rows.forEach(row=>{
+    const d=row.data, r={};
+    W1.forEach(c=>r[c]='');
+    r['key*']=keyMap[row.keyGroup];
+    r['상차일자*']=fmtD(dd); r['상차시간*']=defDeptTime;
+    r['상차회사명*']=FIXED.상차회사명; r['상차주소*']=FIXED.상차주소;
+    r['하차일자*']=fmtD(d.arriveDate||''); r['하차시간*']=d.arriveTime||'';
+    r['하차회사명*']=d.거래처==='__EMPTY__'?'':d.거래처;
+    r['하차주소*']=d.하차주소==='__EMPTY__'?'':d.하차주소;
+    r['하차담당자이름']=d.담당자; r['하차담당자번호']=d.담당자연락처;
+    r['그룹명*']=FIXED.그룹명; r['전체물품명*']=(d.물품명&&d.물품명!==''&&d.물품명!=='ITEM_CUSTOM')?d.물품명:'가벼운박스';
+    r['전체물품 개수']=d.물품개수||'';
+    r['상하차방법']=d.물품명==='가벼운박스'?'수작업':(d.물품명==='파렛트'?'지게차':(d.물품명&&d.물품명!=='ITEM_CUSTOM'?'':''));
+    r['혼적*']=d.혼적; r['요청 차종*']=d.차종; r['요청 차량 톤수*']=d.톤수;
+    r['전달사항(운송사)']=d.수량; r['전달사항(차주)']=FIXED.전달사항차주;
+    r['결제방법*']=FIXED.결제방법; r['운송사*']=FIXED.운송사;
+    out.push(W1.map(c=>csvV(r[c])).join(','));
+  });
+  const blob=new Blob(['\uFEFF'+out.join('\n')],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='W1_특판배차_'+dd.replace(/-/g,'')+'.csv';
+  a.click();
+}
+function toggleGuide(){
+  const o=document.getElementById('guideOverlay');
+  o.style.display = o.style.display==='none' ? 'block' : 'none';
+}
+function toggleW1Guide(){
+  const b=document.getElementById('w1GuideBody');
+  const a=document.getElementById('w1arrow');
+  const open = b.style.display==='none';
+  b.style.display = open ? 'block' : 'none';
+  a.textContent = open ? '▲' : '▼';
+}
+</script>
+</body>
+</html>
