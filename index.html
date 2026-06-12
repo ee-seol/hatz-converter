@@ -48,13 +48,14 @@ thead th.th-purple { background: #4c1d95; }
 thead th.th-dark   { background: #374151; }
 thead th.th-navy   { background: #1e3a5f; }
 tbody tr.r-normal  { background: #ffffff; }
+tbody tr.r-ordercopy { background: #f5f3ff; }
 tbody tr.r-error   { background: #fff8f8; }
 tbody tr.r-editing { background: #fffbeb; }
 tbody td { padding: 7px 6px; vertical-align: middle; word-break: keep-all; overflow-wrap: break-word; }
 td.c-need  { background: #ffe4e4; }
-td.c-done  { background: #f0fdf4 !important; }
+td.c-done  { background: transparent; }
 td.c-warn  { background: #fde68a !important; border-left: 3px solid #f59e0b; }
-td.c-empty { background: #fce7f3 !important; border: 1.5px dashed #db2777; color: #9d174d; font-size: 11px; font-weight: 600; text-align: center; }
+td.c-empty { font-size: 11px; }
 
 /* 그룹 바 셀 */
 .bar-cell { padding: 0 !important; width: 32px; min-width: 32px; vertical-align: middle; }
@@ -233,8 +234,7 @@ footer { text-align: center; padding: 28px; color: #9ca3af; font-size: 12px; }
             <div style="display:flex;flex-wrap:wrap;gap:8px;">
               <div style="display:flex;align-items:center;gap:6px;font-size:12px;"><div style="width:32px;height:18px;background:#ffe4e4;border-radius:3px;border:1px solid #fca5a5;"></div> 선택 필요</div>
               <div style="display:flex;align-items:center;gap:6px;font-size:12px;"><div style="width:32px;height:18px;background:#f0fdf4;border-radius:3px;border:1px solid #86efac;"></div> 선택 완료</div>
-              <div style="display:flex;align-items:center;gap:6px;font-size:12px;"><div style="width:32px;height:18px;background:#fde68a;border-radius:3px;border-left:3px solid #f59e0b;"></div> ⚠️ <strong>경유 확인 필요</strong> → 원본 리스트에서 경유지 확인 후 <strong>경유지추가</strong> 버튼 사용</div>
-              <div style="display:flex;align-items:center;gap:6px;font-size:12px;"><div style="width:32px;height:18px;background:#fde68a;border-radius:3px;border-left:3px solid #f59e0b;"></div> ⚠️ <strong>추가</strong> → 오더복사 버튼을 눌렀을 때 원본 행에 표시됩니다.</div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:12px;"><div style="width:32px;height:18px;background:#fde68a;border-radius:3px;border-left:3px solid #f59e0b;"></div> ⚠️ <strong>특이사항 여부 원본 리스트 확인 필요</strong></div>
               <div style="display:flex;align-items:center;gap:6px;font-size:12px;"><div style="width:32px;height:18px;background:#fce7f3;border-radius:3px;border:1.5px dashed #db2777;"></div> 입력 필요 (경유지 거래처·주소)</div>
             </div>
           </div>
@@ -308,14 +308,7 @@ footer { text-align: center; padding: 28px; color: #9ca3af; font-size: 12px; }
         </div>
         <div style="padding:18px 20px;">
           <p style="font-size:13px;color:#374151;line-height:1.7;margin-bottom:10px;">모든 필수 항목이 채워지면 하단에 <strong>📥 W1 배차 파일 다운로드</strong> 버튼이 나타납니다.</p>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
-            <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;">
-              <span style="color:#22c55e;font-weight:700;font-size:16px;">●</span> 완료 건수가 전체와 일치하면 버튼 활성화
-            </div>
-            <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;">
-              <span style="color:#dc2626;font-weight:700;font-size:16px;">●</span> 미완료 건이 있으면 버튼 숨김
-            </div>
-          </div>
+
           <div style="padding:10px 14px;background:#fffbeb;border-radius:8px;font-size:12px;color:#92400e;">
             💡 다운로드된 CSV 파일을 <strong>로지스팟 W1 (클라이언트 웹) 운송 → 대량 배차등록</strong>에 바로 업로드하면 됩니다.
           </div>
@@ -530,9 +523,9 @@ footer { text-align: center; padding: 28px; color: #9ca3af; font-size: 12px; }
           <col style="width:7%">    <!-- 요청차량 -->
           <col style="width:7%">    <!-- 물품명 -->
           <col style="width:4%">    <!-- 물품개수 -->
-          <col style="width:9%">    <!-- 수량 -->
+          <col style="width:7%">    <!-- 수량 -->
           <col style="width:6%">    <!-- 특이사항 -->
-          <col style="width:5%">    <!-- 추가작업 -->
+          <col style="width:7%">    <!-- 추가작업 -->
         </colgroup>
         <thead><tr>
           <th></th>
@@ -584,6 +577,8 @@ const VLB = { 축:'축', t5:'5톤', t35:'3.5톤', t25:'2.5톤', t14:'1.4톤', t1
 const VEHICLES = ['다마스','라보','카고/윙','카고','윙바디','탑','냉동','냉장'];
 const TONS = ['1톤','1.2톤','2.5톤','3.5톤','5톤','5톤플러스','5톤축','8톤','11톤','11톤축','18톤','25톤'];
 const GCOLORS = ['#4f8ef7','#e05c9b','#16a34a','#f59e0b','#8b5cf6','#0891b2','#dc2626','#65a30d','#7c3aed','#0369a1'];
+// 오더복사 그룹용 파스텔 컬러 (keyGroup 순서로 순환)
+const COPY_COLORS = ['#a78bfa','#f472b6','#34d399','#fb923c','#60a5fa','#38bdf8','#f87171','#a3e635','#e879f9','#2dd4bf'];
 
 // ── 상태 ──────────────────────────────────────
 // rows: 행 배열. 각 행은 고정 슬롯(slot)을 가짐.
@@ -659,15 +654,71 @@ function fmtD(s){ if(!s)return''; const[y,m,d]=s.split('-'); return y+'.'+m+'.'+
 
 function exPhone(t){ const m=t.match(/01[016789][-.\s]?\d{3,4}[-.\s]?\d{4}/); return m?m[0].replace(/[.\s]/g,'-'):''; }
 function exName(t,p){ let s=t; if(p) s=s.replace(p,'').replace(/01[016789][-.\s]?\d{3,4}[-.\s]?\d{4}/,''); return s.trim().replace(/[-,·\/]+$/,'').trim(); }
-function detVeh(r){
+// 차량 정보 전체 분석: 여러 칸 처리
+function analyzeVehicles(r){
+  const orders=[]; // [{label, honjeok, tonsu}]
+  let mixedText=false;
+
   for(const [k,lb] of Object.entries(VLB)){
     const i=SRC[k];
-    if(i!==undefined&&r[i]!==null&&r[i]!==undefined&&String(r[i]).trim()!==''){
-      const raw=String(r[i]).trim();
-      return lb+' / '+(/^\d+$/.test(raw)?lb+' '+raw+'대':raw);
+    if(i===undefined||r[i]===null||r[i]===undefined||String(r[i]).trim()==='') continue;
+    const raw=String(r[i]).trim();
+
+    // 줄바꿈 포함: 혼재로 판단
+    if(/\n/.test(raw)){
+      mixedText=true;
+      orders.push({label:lb+' / '+raw.replace(/\n/g,' '), honjeok:'', tonsu:'', col:lb, mixed:true});
+      continue;
+    }
+
+    // 쉼표/+/& 포함 혼재
+    if(/[,+&]/.test(raw)){
+      mixedText=true;
+      orders.push({label:lb+' / '+raw, honjeok:'', tonsu:'', col:lb, mixed:true});
+      continue;
+    }
+
+    // 숫자만: N대
+    if(/^\d+$/.test(raw)){
+      const cnt=parseInt(raw);
+      for(let n=0;n<cnt;n++){
+        const hon=inferHonjeok(lb+' / '+raw);
+        const ton=hon==='혼적'?'5톤':inferTonsuFromLabel(lb);
+        orders.push({label:lb+' / '+lb+' '+(n+1)+'대', honjeok:hon, tonsu:ton, col:lb});
+      }
+    }
+    // 텍스트(혼재 가능성): 쉼표/+/& 또는 줄바꿈 포함
+    else if(/[,+&]/.test(raw)||/\n/.test(raw)){
+      mixedText=true;
+      orders.push({label:lb+' / '+raw.replace(/\n/g,' '), honjeok:'', tonsu:'', col:lb, mixed:true});
+    }
+    // 그 외 텍스트 (예: "5축")
+    else {
+      const hon=inferHonjeok(lb+' / '+raw);
+      const ton=hon==='혼적'?'5톤':inferTonsuFromLabel(lb);
+      orders.push({label:lb+' / '+raw, honjeok:hon, tonsu:ton, col:lb});
     }
   }
-  return'(없음)';
+
+  if(orders.length===0) orders.push({label:'(없음)', honjeok:'독차', tonsu:'', col:''});
+  return {orders, mixedText};
+}
+
+// 컬럼명으로 톤수 추론
+function inferTonsuFromLabel(lb){
+  if(lb==='축') return '5톤축';
+  if(lb==='5톤') return '5톤';
+  if(lb==='3.5톤') return '3.5톤';
+  if(lb==='2.5톤') return '2.5톤';
+  if(lb==='1.4톤') return '1.2톤';
+  if(lb==='1톤') return '1톤';
+  if(lb==='1m') return '1톤';
+  return '';
+}
+
+function detVeh(r){
+  const {orders}=analyzeVehicles(r);
+  return orders[0].label;
 }
 
 // 혼적 추론: m 또는 M 포함이면 혼적, 아니면 독차
@@ -704,23 +755,42 @@ function processFile(file){
     for(let i=2;i<raw.length;i++){
       const r=raw[i]; if(!r||!r[SRC.거래처]) continue;
       const ar=r[SRC.주소]?String(r[SRC.주소]):'';
-      const ls=ar.split('\n').map(l=>l.trim()).filter(Boolean);
-      const ph=exPhone(ls[1]||''); const nm=ls[1]?exName(ls[1],ph):'';
-      const veh = detVeh(r);
-      const autoHonjeok = inferHonjeok(veh);
-      const autoTonsu   = inferTonsu(veh);
-      // 차량 수 감지: "2대","2 대" 이상이면 특이사항에 표시
-      const carCnt = veh.match(/(\d+)\s*대/);
-      const multiCar = carCnt && parseInt(carCnt[1]) >= 2;
-      const baseTeuki = ls.length>=3 ? '경유 확인 필요' : '';
-      const teuki = multiCar
-        ? (baseTeuki ? baseTeuki + '\n차량 대 수 확인 필요' : '차량 대 수 확인 필요')
-        : baseTeuki;
+
+      // 빈줄로 경유지 그룹 분리
+      const rawLines=ar.split('\n');
+      const addrGroups=[];
+      let curGrp=[];
+      for(const line of rawLines){
+        if(line.trim()===''){
+          if(curGrp.length>0){addrGroups.push(curGrp);curGrp=[];}
+        } else { curGrp.push(line.trim()); }
+      }
+      if(curGrp.length>0) addrGroups.push(curGrp);
+
+      // 그룹 형식 판단:
+      // - 경유 없음(1그룹): 기존 2줄 형식 (주소 / 담당자연락처)
+      // - 경유 있음(2그룹+): 3줄 형식 (주소 / 거래처명 / 담당자연락처)
+      const firstGrp=addrGroups[0]||[];
+      const hasDetourGroups=addrGroups.length>=2;
+      const ls=firstGrp;
+      // 첫 그룹 파싱: 경유있으면 3줄, 없으면 2줄
+      const firstAddr=firstGrp[0]||'';
+      const firstCo=hasDetourGroups?(firstGrp[1]||''):'';
+      const firstContactLine=hasDetourGroups?(firstGrp[2]||''):(firstGrp[1]||'');
+      const ph=exPhone(firstContactLine); const nm=firstContactLine?exName(firstContactLine,ph):'';
+
+      const vehAnalysis = analyzeVehicles(r);
+      const veh = vehAnalysis.orders[0].label;
+      const isMixed = vehAnalysis.mixedText;
+      const autoHonjeok = isMixed ? '' : (vehAnalysis.orders[0].honjeok||inferHonjeok(veh));
+      const autoTonsu   = isMixed ? '' : (vehAnalysis.orders[0].tonsu||(autoHonjeok==='혼적'?'5톤':inferTonsu(veh)));
+      // 혼재 텍스트 감지: 특이사항에 경고
+      const teuki = vehAnalysis.mixedText ? '차량 수 확인 필요' : '';
       rows.push({
         id:nextId++, keyGroup:kg++,
         isWaypoint:false, isOrderCopy:false, editing:false,
         data:{
-          거래처:String(r[SRC.거래처]).trim(), 하차주소:ls[0]||'',
+          거래처:hasDetourGroups?firstCo:String(r[SRC.거래처]).trim(), 하차주소:firstAddr,
           담당자:nm, 담당자연락처:ph,
           수량:r[SRC.수량]?String(r[SRC.수량]).trim():'',
           특이사항:teuki,
@@ -730,6 +800,61 @@ function processFile(file){
           arriveDate:defArrDate, arriveTime:defArrTime,
         }
       });
+
+      // 다중 오더 자동생성: 2번째 이후 차량은 별도 오더로
+      if(vehAnalysis.orders.length>1 && !vehAnalysis.mixedText){
+        for(let oi=1;oi<vehAnalysis.orders.length;oi++){
+          const ov=vehAnalysis.orders[oi];
+          const newKg=Math.max(...rows.map(x=>x.keyGroup))+1;
+          rows.push({
+            id:nextId++, keyGroup:newKg,
+            isWaypoint:false, isOrderCopy:true, editing:false,
+            data:{
+              거래처:hasDetourGroups?firstCo:String(r[SRC.거래처]).trim(),
+              하차주소:firstAddr,
+              담당자:nm, 담당자연락처:ph,
+              수량:r[SRC.수량]?String(r[SRC.수량]).trim():'',
+              특이사항:'✓ 추가',
+              요청차량:ov.label,
+              혼적:ov.honjeok, 차종:'윙바디', 톤수:ov.tonsu,
+              물품명:'가벼운박스', 물품개수:'',
+              arriveDate:defArrDate, arriveTime:defArrTime,
+            }
+          });
+        }
+        kg=Math.max(...rows.map(x=>x.keyGroup))+1;
+      }
+
+            // 경유지 자동 생성: 그룹 2개 이상이면 각 그룹을 경유지로 추가
+      if(addrGroups.length>=2){
+        const baseKg=kg-1; // 방금 push한 행의 keyGroup
+        for(let gi=1;gi<addrGroups.length;gi++){
+          const grp=addrGroups[gi];
+          // 경유 3줄 형식: grp[0]=주소, grp[1]=거래처, grp[2]=담당자연락처
+          const wAddr=grp[0]||'';
+          const wCo=grp[1]||'';
+          const wContactLine=grp[2]||'';
+          const wph=exPhone(wContactLine); const wnm=wContactLine?exName(wContactLine,wph):'';
+          const isLast=gi===addrGroups.length-1;
+          rows.push({
+            id:nextId++, keyGroup:baseKg,
+            isWaypoint:true, isAutoWaypoint:true, isOrderCopy:false, editing:false,
+            data:{
+              거래처:wCo,
+              하차주소:wAddr,
+              담당자:wnm, 담당자연락처:wph,
+              수량:'', 특이사항:'',
+              요청차량:veh,
+              혼적:autoHonjeok, 차종:'윙바디', 톤수:autoTonsu,
+              물품명:'가벼운박스', 물품개수:'',
+              arriveDate:defArrDate, arriveTime:defArrTime,
+            }
+          });
+        }
+        // 원본 행 특이사항 업데이트
+        rows[rows.length-addrGroups.length+1-1].data.특이사항='✓ 경유';
+        kg++; // keyGroup 다음으로
+      }
     }
     document.getElementById('fileLoaded').textContent='✅ "'+file.name+'" 읽기 완료 — '+rows.length+'건';
     document.getElementById('fileLoaded').classList.remove('hidden');
@@ -761,6 +886,7 @@ function buildKeyMap(){
 }
 
 function gc(kg){ return GCOLORS[(kg-1)%GCOLORS.length]; }
+function copyGc(kg){ return COPY_COLORS[(kg-1)%COPY_COLORS.length]; }
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 function render(){
@@ -769,6 +895,34 @@ function render(){
   // 그룹별 슬롯 인덱스 목록
   const gmap={};
   rows.forEach((r,i)=>{ (gmap[r.keyGroup]=gmap[r.keyGroup]||[]).push(i); });
+
+  // 오더복사 그룹 맵: 연속된 오더복사 행들 + 바로 앞 원본 행을 하나의 그룹으로
+  // copyGroupId: 각 행에 복사그룹 ID 부여
+  const copyGroupMap = {}; // rowId → copyGroupId
+  let copyGid = 0;
+  for(let i=0;i<rows.length;i++){
+    if(rows[i].isOrderCopy){
+      // 앞에서 같은 거래처+주소를 가진 원본 행 찾기
+      // 간단하게: 현재 행 바로 앞 비복사 행을 원본으로 간주
+      if(copyGroupMap[rows[i].id]===undefined){
+        // 새 복사그룹 시작: 원본 찾기
+        let srcIdx=i-1;
+        while(srcIdx>=0&&rows[srcIdx].isOrderCopy) srcIdx--;
+        if(srcIdx>=0){
+          if(copyGroupMap[rows[srcIdx].id]===undefined){
+            copyGid++;
+            copyGroupMap[rows[srcIdx].id]=copyGid;
+          }
+          copyGroupMap[rows[i].id]=copyGroupMap[rows[srcIdx].id];
+        }
+      }
+    }
+  }
+  // copyGroupId → [rowId 목록]
+  const copyGroups={};
+  Object.entries(copyGroupMap).forEach(([rid,gid])=>{
+    (copyGroups[gid]=copyGroups[gid]||[]).push(Number(rid));
+  });
 
   const tbody=document.getElementById('tbody');
   tbody.innerHTML='';
@@ -784,30 +938,52 @@ function render(){
     const posInGrp=grpIdxs.indexOf(idx);
     const isFirst=posInGrp===0;
     const isLast=posInGrp===grpIdxs.length-1;
+
+    // 오더복사 그룹 판단
+    const myCopyGid = copyGroupMap[row.id];
+    const isCopyGrouped = myCopyGid !== undefined;
+    const copyGrpRowIds = isCopyGrouped ? (copyGroups[myCopyGid]||[]) : [];
+    // 오더복사 그룹 내 위치
+    const copyGrpIdxs = copyGrpRowIds.map(rid=>rows.findIndex(r=>r.id===rid)).filter(x=>x>=0).sort((a,b)=>a-b);
+    const posInCopyGrp = copyGrpIdxs.indexOf(idx);
+    const isCopyFirst = posInCopyGrp===0;
+    const isCopyLast  = posInCopyGrp===copyGrpIdxs.length-1;
+
     const color=isGrouped?gc(row.keyGroup):'transparent';
+    const copyColor=isCopyGrouped?copyGc(myCopyGid):'transparent';
 
     // ── 그룹 바 셀: 컬러 바 + ↕ 버튼 ──
     // 구조: [위쪽 색바 세그먼트] + [↕버튼(마지막 아닐때)] + [아래쪽 색바 세그먼트]
     // 버튼이 두 행 사이 경계에 오도록 위/아래 바를 나눔
-    let barInner='';
-    if(isGrouped){
-      const radTop = isFirst ? 'border-radius:4px 4px 0 0;' : '';
-      const radBot = isLast  ? 'border-radius:0 0 4px 4px;' : '';
-      const radOnly= (isFirst&&isLast) ? 'border-radius:4px;' : '';
+    // ── 그룹 바: 경유지(왼쪽 5px) + 오더복사(오른쪽 5px) 두 줄 ──
+    let barLeft='', barRight='';
 
+    // 경유지 바 (왼쪽)
+    if(isGrouped){
       if(!isLast){
-        // 위쪽 바 세그먼트 (flex:1 → 셀 위쪽 채움)
-        barInner += '<div class="bar-seg" style="background:'+color+';flex:1;'+(isFirst?'border-radius:4px 4px 0 0;':'')+'"></div>';
-        // ↕ 버튼: posInGrp번째와 posInGrp+1번째 data 교환
-        barInner += '<button class="btn-swap" onclick="swapData('+row.keyGroup+','+posInGrp+','+(posInGrp+1)+')" title="아래 행과 순서 바꾸기">↕</button>';
+        barLeft += '<div class="bar-seg" style="background:'+color+';flex:1;'+(isFirst?'border-radius:4px 4px 0 0;':'')+'"></div>';
+        barLeft += '<button class="btn-swap" onclick="swapData('+row.keyGroup+','+posInGrp+','+(posInGrp+1)+')" title="아래 행과 순서 바꾸기">↕</button>';
       } else {
-        // 마지막 행: 버튼 없이 바만 (위에서 이어짐)
-        barInner += '<div class="bar-seg" style="background:'+color+';flex:1;border-radius:0 0 4px 4px;"></div>';
+        barLeft += '<div class="bar-seg" style="background:'+color+';flex:1;border-radius:0 0 4px 4px;"></div>';
       }
     } else {
-      barInner='<div style="width:5px;flex:1;"></div>';
+      barLeft = '<div style="width:5px;flex:1;"></div>';
     }
-    const barCell='<td class="bar-cell"><div class="bar-wrap">'+barInner+'</div></td>';
+
+    // 오더복사 바 (오른쪽)
+    if(isCopyGrouped){
+      const cRad = isCopyFirst&&isCopyLast?'border-radius:4px;':(isCopyFirst?'border-radius:4px 4px 0 0;':(isCopyLast?'border-radius:0 0 4px 4px;':'border-radius:0;'));
+      barRight = '<div style="background:'+copyColor+';width:5px;flex:1;margin-left:2px;'+cRad+'"></div>';
+    } else {
+      barRight = '<div style="width:5px;flex:1;margin-left:2px;"></div>';
+    }
+
+    const barCell='<td class="bar-cell"><div class="bar-wrap" style="flex-direction:column;gap:0;">'
+      +'<div style="display:flex;width:100%;flex:1;gap:2px;">'
+      +'<div style="display:flex;flex-direction:column;align-items:center;flex:1;">'+barLeft+'</div>'
+      +'<div style="display:flex;flex-direction:column;align-items:center;width:7px;">'+barRight+'</div>'
+      +'</div>'
+      +'</td>';
 
     // 배지: 그룹화된 경우 위치에 따라 경유지/최종하차지 구분
     let badge = '';
@@ -830,7 +1006,10 @@ function render(){
 
     const tr=document.createElement('tr');
     tr.id='tr'+row.id;
-    tr.className=row.editing?'r-editing':(filled?'r-normal':'r-error');
+    // 오더복사 그룹: 같은 keyGroup에 isOrderCopy가 있으면 연보라 배경
+    const grpHasCopy=grpIdxs.some(i=>rows[i].isOrderCopy);
+    const baseCls = row.editing?'r-editing':(filled?'r-normal':'r-error');
+    tr.className = baseCls;
 
     const g=row.data.거래처; const ha=row.data.하차주소;
     const gEmpty=g==='__EMPTY__', haEmpty=ha==='__EMPTY__';
@@ -866,17 +1045,17 @@ function render(){
         +'<td><div class="act-btns"><button class="btn-a ba-done" onclick="doneEdit('+row.id+')">수정완료</button></div></td>';
     } else {
       tr.innerHTML=barCell+keyCell+dtCell
-        +(gEmpty
-          ?'<td class="c-empty"><input class="edit-inp-sm" style="border-color:#db2777;" value="" placeholder="거래처 입력" onchange="updWayField('+row.id+',\'거래처\',this.value)"></td>'
-          :'<td style="font-size:12px;">'+esc(g)+'</td>')
-        +(haEmpty
-          ?'<td class="c-empty"><input class="edit-inp-sm" style="border-color:#db2777;width:100%;" value="" placeholder="하차주소 입력" onchange="updWayField('+row.id+',\'하차주소\',this.value)"></td>'
-          :'<td style="font-size:12px;">'+esc(ha)+'</td>')
-        +(row.isWaypoint
-          ?'<td><input class="edit-inp-sm" value="'+esc(d.담당자)+'" placeholder="담당자" onchange="updWayField('+row.id+',\'담당자\',this.value)"></td>'
+        +((!row.isAutoWaypoint&&gEmpty)
+          ?'<td><textarea class="edit-inp" placeholder="거래처 입력" onchange="updWayField('+row.id+',\'거래처\',this.value)">'+esc(d.거래처==='__EMPTY__'?'':d.거래처)+'</textarea></td>'
+          :'<td style="font-size:12px;">'+esc(g==='__EMPTY__'?'':g)+'</td>')
+        +((!row.isAutoWaypoint&&haEmpty)
+          ?'<td><textarea class="edit-inp" placeholder="하차주소 입력" onchange="updWayField('+row.id+',\'하차주소\',this.value)">'+esc(d.하차주소==='__EMPTY__'?'':d.하차주소)+'</textarea></td>'
+          :'<td style="font-size:12px;">'+esc(ha==='__EMPTY__'?'':ha)+'</td>')
+        +((!row.isAutoWaypoint&&row.isWaypoint)
+          ?'<td><textarea class="edit-inp" placeholder="담당자" onchange="updWayField('+row.id+',\'담당자\',this.value)">'+esc(d.담당자)+'</textarea></td>'
           :'<td style="font-size:12px;">'+esc(d.담당자)+'</td>')
-        +(row.isWaypoint
-          ?'<td><input class="edit-inp-sm" value="'+esc(d.담당자연락처)+'" placeholder="연락처" onchange="updWayField('+row.id+',\'담당자연락처\',this.value)"></td>'
+        +((!row.isAutoWaypoint&&row.isWaypoint)
+          ?'<td><textarea class="edit-inp" placeholder="연락처" onchange="updWayField('+row.id+',\'담당자연락처\',this.value)">'+esc(d.담당자연락처)+'</textarea></td>'
           :'<td style="font-size:12px;">'+esc(d.담당자연락처)+'</td>')
         +'<td class="'+(d.혼적?'c-done':'c-need')+'">'
           +'<select class="c-sel'+(d.혼적?' ok':'')+'" onchange="setV('+row.id+',\'혼적\',this.value,this)">'
@@ -909,7 +1088,11 @@ function render(){
         +(()=>{
           const tv=d.특이사항||'';
           if(tv==='✓ 경유'||tv==='✓ 추가') return '<td style="font-size:11px;color:#6b7280;">'+esc(tv)+'</td>';
-          if(tv&&tv!=='') return '<td class="c-warn" style="font-size:11px;white-space:pre-wrap;">⚠️ '+esc(tv)+'</td>';
+          if(tv&&tv!==''){
+            const hasX = tv==='차량 수 확인 필요'||tv==='경유 확인 필요'||tv==='차량 대 수 확인 필요';
+            const xBtn = hasX ? '<button onclick="clearTeuki('+row.id+')" style="margin-left:6px;border:none;background:rgba(0,0,0,0.1);border-radius:4px;padding:1px 5px;font-size:10px;cursor:pointer;color:#92400e;" title="확인 완료 - 삭제">✕</button>' : '';
+            return '<td class="c-warn" style="font-size:11px;white-space:pre-wrap;">⚠️ '+esc(tv)+xBtn+'</td>';
+          }
           return '<td style="font-size:11px;"></td>';
         })()
         +'<td><div class="act-btns">'
@@ -926,6 +1109,11 @@ function render(){
 // ── 행 조작 ───────────────────────────────────
 function byId(id){ return rows.find(r=>r.id===id); }
 function updR(id,key,val){ const r=byId(id); if(!r) return; r.data[key]=(key==='물품명'&&val==='')?'ITEM_CUSTOM':val; }
+function clearTeuki(id){
+  const r=byId(id); if(!r) return;
+  r.data.특이사항='';
+  render(); chips();
+}
 function updWayField(id,key,val){
   const r=byId(id); if(!r) return;
   r.data[key]=val||'__EMPTY__';
@@ -969,7 +1157,7 @@ function addWay(sourceId, afterIdx){
   src.data.특이사항 = src.data.특이사항.replace('경유 확인 필요', '✓ 경유');
   rows.splice(afterIdx+1,0,{
     id:nextId++, keyGroup:src.keyGroup,
-    isWaypoint:true, isOrderCopy:false, editing:false,
+    isWaypoint:true, isAutoWaypoint:false, isOrderCopy:false, editing:false,
     data:{...src.data, 거래처:'__EMPTY__', 하차주소:'__EMPTY__',
           담당자:'', 담당자연락처:'', 특이사항:'', 수량:''}
   });
